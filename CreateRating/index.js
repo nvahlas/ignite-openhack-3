@@ -1,6 +1,7 @@
 module.exports = async function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
 
+    /*
     if (req.body) {
         await performRequest('/api/GetUser?userId=' + req.body.userId, context);
     } else {
@@ -9,43 +10,66 @@ module.exports = async function (context, req) {
             body: "Please pass a name on the query string or in the request body"
         };
     }
+    */
+
+    if (req.body) {
+        await Promise.all( [getUser(req.body.userId), getProduct(req.body.productId)] ).then(
+            function(exists) {
+                return exists;
+            },
+            function(e) {
+                return false;;
+            } 
+        );
+    }
 };
 
-function performRequest(endpoint, context) {
+function getProduct(productId) {
     const https = require('https');
 
     const options = {
         hostname: 'serverlessohuser.trafficmanager.net',
         port: 443,
-        path: endpoint,
+        path: "/api/GetProduct?productId="+productId,
         method: 'GET'
     };
 
-    return new Promise(resolve => {
-
+    return new Promise(function(resolve, reject) {
         const req = https.request(options, (res) => {
-            console.log('statusCode:', res.statusCode);
-            console.log('headers:', res.headers);
-
             res.on('data', (d) => {
-                if (res.statusCode == 200) {
-                    console.log("success");
-                    context.res = {
-                        body: JSON.parse(d)
-                    }
-                } else {
-                    console.log("error");
-                    context.res = {
-                        body: "No user found"
-                    }
-                }
-                context.done();
+                resolve(d?true:false);
             });
         });
 
         req.on('error', (e) => {
-            error();
+            reject(e);
         });
+
+        req.end();
+    });
+}
+
+function getUser(userId) {
+    const https = require('https');
+
+    const options = {
+        hostname: 'serverlessohuser.trafficmanager.net',
+        port: 443,
+        path: "/api/GetUser?userId="+userId,
+        method: 'GET'
+    };
+
+    return new Promise(function(resolve, reject) {
+        const req = https.request(options, (res) => {
+            res.on('data', (d) => {
+                resolve(d?true:false);
+            });
+        });
+
+        req.on('error', (e) => {
+            reject(e);
+        });
+
         req.end();
     });
 }
