@@ -9,20 +9,23 @@ module.exports = async function (context, req) {
     if (req.body) {
         await Promise.all( [getUser(req.body.userId), getProduct(req.body.productId), checkRating(req.body.rating)] ).then(
             function(exists) {
-                context.res.body = 'All validation passed !';
-                var dal = new RatingDao(new DocumentClient(config.host, {masterKey: config.authKey}), config.databaseId, config.collectionId);
-                req.body.id = uuidv4();
-                req.body.timestamp = Date.UTC();
-                dal.addItem(req.body, function(data){
-                    console.log(data);
+                var dal = new RatingDao(new DocumentDBClient(config.host, { masterKey: config.authKey }), config.databaseId, config.collectionId);
+                dal.init(function () {
+                    req.body.id = uuidv4();
+                    req.body.timestamp = Date.now();
+                    dal.addItem(req.body, function (data) {
+                        context.res.body = 'All validation passed !';
+                        console.log(data);
+                        context.done();
+                    });
                 });
-                context.done();
+
                 return exists;
             },
             function(e) {
                 context.res.body = 'Validation failed !';
                 context.done();
-                return false;;
+                return false;
             } 
         );
     }

@@ -27,6 +27,7 @@ RatingDao.prototype = {
 
                     } else {
                         self.collection = coll;
+                        callback();
                     }
                 });
             }
