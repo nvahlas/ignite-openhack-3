@@ -1,3 +1,8 @@
+var RatingDao = require('../models/RatingDao');
+var DocumentDBClient = require('documentdb').DocumentClient;
+const uuidv4 = require('uuid/v4');
+var config = require('../config');
+
 module.exports = async function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
 
@@ -5,6 +10,12 @@ module.exports = async function (context, req) {
         await Promise.all( [getUser(req.body.userId), getProduct(req.body.productId), checkRating(req.body.rating)] ).then(
             function(exists) {
                 context.res.body = 'All validation passed !';
+                var dal = new RatingDao(new DocumentClient(config.host, {masterKey: config.authKey}), config.databaseId, config.collectionId);
+                req.body.id = uuidv4();
+                req.body.timestamp = Date.UTC();
+                dal.addItem(req.body, function(data){
+                    console.log(data);
+                });
                 context.done();
                 return exists;
             },
