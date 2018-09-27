@@ -89,14 +89,17 @@ RatingDao.prototype = {
         var self = this;
 
         var querySpec = {
-            query: 'SELECT * FROM root r WHERE r.id = @id',
+            query: 'SELECT r.id, r.userId, r.productId, r.timestamp, r.locationName, r.rating, r.userNotes FROM Documents r WHERE r.id = @id',
             parameters: [{
                 name: '@id',
                 value: itemId
             }]
         };
+        const options = {
+            enableCrossPartitionQuery: true
+        };
 
-        self.client.queryDocuments(self.collection._self, querySpec).toArray(function (err, results) {
+        self.client.queryDocuments(self.collection._self, querySpec, options).toArray(function (err, results) {
             if (err) {
                 callback(err);
 
