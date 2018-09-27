@@ -1,13 +1,17 @@
 module.exports = async function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
 
-
     if (req.body) {
-        var payload = req.body;
-        context.res = {
-            // status: 200, /* Defaults to 200 */
-            body: "UserId: " + payload.userId
-        };
+        performRequest('/api/GetUser?userId=' + req.body.userId, function(data) {
+            console.log(data);
+            context.res = {
+                body: data
+            };    
+        }, function() {
+            context.res = {
+                body: "User " + req.body.userId + " does not exist"
+            };
+        });
     } else {
         context.res = {
             status: 400,
@@ -15,3 +19,30 @@ module.exports = async function (context, req) {
         };
     }
 };
+
+
+function performRequest(endpoint, success, error) {
+    const https = require('https');
+
+    const options = {
+      hostname: 'serverlessohuser.trafficmanager.net',
+      port: 443,
+      path: endpoint,
+      method: 'GET'
+    };
+    
+    
+    const req = https.request(options, (res) => {
+      console.log('statusCode:', res.statusCode);
+      console.log('headers:', res.headers);
+    
+      res.on('data', (d) => {
+        success(JSON.parse(d));
+      });
+    });
+    
+    req.on('error', (e) => {
+        error();
+    });
+    req.end();
+}
