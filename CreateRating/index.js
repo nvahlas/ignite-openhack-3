@@ -3,96 +3,88 @@ var DocumentDBClient = require('documentdb').DocumentClient;
 const uuidv4 = require('uuid/v4');
 var config = require('../config');
 
-module.exports = async function (context, req) {
-    context.log('JavaScript HTTP trigger function processed a request.');
+let request = require('async-request');
 
-    if (req.body) {
-        await Promise.all( [getUser(req.body.userId), getProduct(req.body.productId), checkRating(req.body.rating)] ).then(
-            function(exists) {
-                var dal = new RatingDao(new DocumentDBClient(config.host, { masterKey: config.authKey }), config.databaseId, config.collectionId);
-                dal.init(function () {
-                    req.body.id = uuidv4();
-                    req.body.timestamp = Date.now();
-                    dal.addItem(req.body, function (data) {
-                        context.res.body = 'All validation passed !';
-                        console.log(data);
-                        context.done();
-                    });
-                });
-
-                return exists;
-            },
-            function(e) {
-                context.res.body = 'Validation failed !';
-                context.done();
-                return false;
-            } 
-        );
-    }
+var dao = new RatingDao(new DocumentDBClient(config.host, { masterKey: config.authKey }), config.databaseId, config.collectionId);
 
 
+async function productExists(productId) {
+    let response = await request('https://serverlessohproduct.trafficmanager.net/api/GetProduct?productId='+productId);
+    return (response.statusCode!=200?false:true);
 };
 
-function checkRating(rating) {
-    return new Promise(function(resolve, reject) {
-        if (rating >= 0 && rating <= 5) {
-            resolve(true);
-        } else {
-            reject();
-        }
-    });
+async function userExists(userId) {
+    let response = await request('https://serverlessohuser.trafficmanager.net/api/GetUser?userId='+userId);
+    return (response.statusCode!=200?false:true);
 };
 
-function getProduct(productId) {
-    const https = require('https');
-
-    const options = {
-        hostname: 'serverlessohproduct.trafficmanager.net',
-        port: 443,
-        path: "/api/GetProduct?productId="+productId,
-        method: 'GET'
-    };
-
-    return new Promise(function(resolve, reject) {
-        const req = https.request(options, (res) => {
-            if (res.statusCode != 200) {
-                reject();
-            } else {
-                resolve(true);
-            }
-        });
-
-        req.on('error', (e) => {
-            reject();
-        });
-
-        req.end();
-    });
+function ratingOk(rating) {
+    return (rating >= 0 && rating <= 5);
 }
 
-function getUser(userId) {
-    const https = require('https');
+module.exports = async function (context, req) {
+    if (req.body) { 
+        if (   await productExists(req.body.productId) 
+            && await userExists(req.body.userId)
+            && ratingOk(req.body.rating)) {
 
-    const options = {
-        hostname: 'serverlessohuser.trafficmanager.net',
-        port: 443,
-        path: "/api/GetUser?userId="+userId,
-        method: 'GET'
-    };
+            context.log('Validation Ok !');
+            
+        } else { 
+            context.log('Validation failed !');
+        }
+        
+        /*    
+        await Promise.all( [getUser(req.body.userId), getProduct(req.body.productId), checkRating(req.body.rating)] )
+            .then( function (valid) {
+                daoInit(dao).then(function(initialized) {
+                    daoAddItem(dao, req.body).then(
+                        function(data) {
+                            context.res.body = data;
+                            context.done();
+                        })
+                    })
+                },
+                function(e) {
+                    context.res.body = 'Validation failed !';
+                    context.done();
+                }
+            )
+        */
+    }
+};
 
+async function daoInit(dao) {
     return new Promise(function(resolve, reject) {
-        const req = https.request(options, (res) => {
-            if (res.statusCode != 200 ) {
-                reject();
+        dao.init(function (err) {
+            if (err) {
+                console.log('init failed !')
+                reject(err);
             } else {
+                console.log('init done !');
                 resolve(true);
             }
         });
+    });
+};
 
-        req.on('error', (e) => {
-            reject();
+async function daoAddItem(dao, item) {
+    return new Promise(function(resolve, reject) {
+        item.id = uuidv4();
+        item.timestamp = Date.now();
+        
+        console.log('item created !', item);
+        resolve(item);
+        /*
+        dao.addItem(item, function (err, data) {
+            if (err) {
+                console.log('could no tcreate item !', err);
+                reject(err);
+            } else {
+                console.log('item created !', data);
+                resolve(data);
+            }
         });
-
-        req.end();
+        */
     });
 }
